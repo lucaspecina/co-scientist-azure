@@ -1,5 +1,3 @@
-# DeepResearch ReAct
-
 A research assistant powered by Azure OpenAI, Azure Cognitive Search, and the ReAct framework.
 
 ## Requirements
