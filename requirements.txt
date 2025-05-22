@@ -1,0 +1,9 @@
+autogen-agentchat
+autogen-ext[azure]
+python-dotenv
+azure-identity
+openai
+azure-ai-ml
+azure-search-documents
+requests
+PyMuPDF==1.23.8  # For PDF processing
