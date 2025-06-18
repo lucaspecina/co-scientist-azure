@@ -25,3 +25,7 @@ BING_CONNECTION_NAME = os.getenv("BING_CONNECTION_NAME")
 MAX_ITERATIONS = 50  # Maximum number of reasoning iterations
 MAX_TOKENS = 5000   # Maximum tokens in response
 TEMPERATURE = 0     # Temperature for LLM (0 = deterministic) 
+
+# Semantic Scholar settings
+SEMANTIC_SCHOLAR_API_KEY = os.getenv("SEMANTIC_SCHOLAR_API_KEY")
+SEMANTIC_SCHOLAR_API_URL = "https://api.semanticscholar.org/graph/v1" 
