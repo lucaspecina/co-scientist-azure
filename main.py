@@ -135,10 +135,10 @@ def main():
             print("\nThank you for using DeepResearch. Goodbye!")
             break
 
-        # Display the query
-        print("\n" + "-"*80)
-        print(f"Query: {next_query}")
-        print("-"*80)
+        # # Display the query
+        # print("\n" + "-"*80)
+        # print(f"Query: {next_query}")
+        # print("-"*80)
 
         # Run the agent
         try:

@@ -7,3 +7,4 @@ azure-ai-ml
 azure-search-documents
 requests
 PyMuPDF==1.23.8  # For PDF processing
+tiktoken

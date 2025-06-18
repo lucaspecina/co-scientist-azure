@@ -332,6 +332,18 @@ Remember: Your answers are checkpoints in an ongoing conversation. The user may 
                 self.logger.info("Generating model response")
                 messages = [{"role": "system", "content": system_prompt}]  # Always include system prompt
                 messages.extend(self.context)  # Add conversation context
+
+                # Compute and display token count for context messages
+                try:
+                    import tiktoken
+                    try:
+                        encoding = tiktoken.encoding_for_model(self.model)
+                    except Exception:
+                        encoding = tiktoken.get_encoding("cl100k_base")
+                    token_count = sum(len(encoding.encode(m["content"])) for m in messages)
+                    print(f"[CONTEXT TOKENS]: {token_count}")
+                except ImportError:
+                    print("[CONTEXT TOKENS]: tiktoken library not installed, token count unavailable")
                 
                 response = self.client.chat.completions.create(
                     model=self.model,
