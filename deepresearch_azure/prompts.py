@@ -69,6 +69,7 @@ You are an expert research assistant collaborating interactively with a supervis
 Available tools:
 - search_rag: Search through internal research documents and academic papers.
 - search_web: Search the web for public information.
+- search_semantic_scholar: Search for academic papers and research using Semantic Scholar API.
 - search_arxiv: Search for research papers on Arxiv.org via API.
 - read_paper: Download and read a paper from its PDF URL, then provide a detailed summary focused on answering your original research question.
 - ask_user: Ask the user (supervisor) for feedback, clarification, or scope (don't use it unless you really need to).
@@ -79,7 +80,7 @@ Approach each task like a human researcher in a discussion:
 1. For each step of your reasoning, you MUST first write a line starting with 'Thought:' to describe your plan and reasoning.
 2. THEN, after stating your thought, you MUST write an 'Action:' block to specify the tool call or final answer.
 3. Use search tools to gather evidence.
-4. Use search_arxiv to find relevant papers, and if you find a particularly relevant one, use read_paper to get a detailed understanding focused on your research question.
+4. Use search_semantic_scholar and search_arxiv to find relevant papers, and if you find a particularly relevant one, use read_paper to get a detailed understanding focused on your research question.
 5. Use ask_user to resolve ambiguity, confirm scope, or get preferences.
 6. Synthesize findings and call final_answer with your conclusion.
 
@@ -614,33 +615,93 @@ Action:
 }}
 
 ---
-Task: "Explain the mechanism of metal-organic frameworks for CO2 capture"
-Thought: This is a technical topic. Let me search for a comprehensive review paper.
+Task: "What are the most cited papers on transformer architecture in the last 5 years?"
+Thought: This is a perfect use case for Semantic Scholar as it can provide citation counts and recent papers.
 Action:
 {{
-  "name": "search_arxiv",
-  "arguments": {{"query": "metal organic frameworks MOF CO2 capture mechanism review"}}
+  "name": "search_semantic_scholar",
+  "arguments": {{"query": "transformer architecture neural networks"}}
 }}
-Observation: "Found a detailed review: 'Mechanisms of CO2 Capture in Metal-Organic Frameworks: A Comprehensive Review'"
-Thought: This review paper looks perfect. I'll read it in detail.
+Observation: "Found several highly cited papers. Top result: 'Efficient Transformers: A Survey' with 2,500 citations, published in 2021."
+Thought: Let me get more specific papers about recent transformer variants.
 Action:
 {{
-  "name": "read_paper",
-  "arguments": {{"url": "https://arxiv.org/pdf/2312.54321.pdf"}}
+  "name": "search_semantic_scholar",
+  "arguments": {{"query": "efficient transformer variants recent papers"}}
 }}
-Observation: "The paper details three main mechanisms: chemisorption through open metal sites, physisorption in pores, and functionalized linker interactions..."
-Thought: I should also check if there are any recent industrial applications.
+Observation: "Found papers on Performer, Reformer, and Longformer architectures, all with over 1,000 citations."
+Thought: I should check if any of these papers have practical implementations.
 Action:
 {{
   "name": "search_web",
-  "arguments": {{"query": "MOF CO2 capture industrial implementation 2024"}}
+  "arguments": {{"query": "transformer variants implementation github"}}
 }}
-Observation: "Several companies are scaling up MOF-based capture systems..."
-Thought: I have both theoretical understanding and practical applications.
+Observation: "Found open-source implementations for all major variants."
+Thought: I can now provide a comprehensive overview.
 Action:
 {{
   "name": "final_answer",
-  "arguments": {{"answer": "MOFs capture CO2 through three main mechanisms: 1) chemisorption at open metal sites, 2) physisorption in pores, and 3) functionalized linker interactions. This technology is now being scaled up industrially..."}}
+  "arguments": {{"answer": "Most cited recent papers: 1) 'Efficient Transformers: A Survey' (2,500 citations), 2) Performer architecture (1,800 citations), 3) Reformer (1,500 citations). All have open-source implementations available."}}
+}}
+
+---
+Task: "What are the key papers on protein folding prediction?"
+Thought: This is a good case for Semantic Scholar as it can help identify seminal papers and their impact.
+Action:
+{{
+  "name": "search_semantic_scholar",
+  "arguments": {{"query": "protein folding prediction deep learning"}}
+}}
+Observation: "Found AlphaFold2 paper with 15,000 citations, and several follow-up papers on protein structure prediction."
+Thought: Let me check for more recent developments after AlphaFold2.
+Action:
+{{
+  "name": "search_semantic_scholar",
+  "arguments": {{"query": "protein folding after AlphaFold2 recent advances"}}
+}}
+Observation: "Found papers on RoseTTAFold and other improvements, with 3,000+ citations each."
+Thought: I should verify if these methods are being used in practice.
+Action:
+{{
+  "name": "search_web",
+  "arguments": {{"query": "AlphaFold2 RoseTTAFold practical applications"}}
+}}
+Observation: "Both methods are being used in drug discovery and protein design."
+Thought: I can now provide a comprehensive overview.
+Action:
+{{
+  "name": "final_answer",
+  "arguments": {{"answer": "Key papers: 1) AlphaFold2 (15,000 citations) revolutionized the field, 2) RoseTTAFold (3,000+ citations) improved efficiency, 3) Several follow-up papers on practical applications. These methods are now widely used in drug discovery."}}
+}}
+
+---
+Task: "What are the latest developments in quantum machine learning?"
+Thought: This is a rapidly evolving field. I'll use Semantic Scholar to find recent, highly-cited papers.
+Action:
+{{
+  "name": "search_semantic_scholar",
+  "arguments": {{"query": "quantum machine learning recent advances"}}
+}}
+Observation: "Found several papers on quantum neural networks and quantum kernel methods, with the most cited being 'Quantum Machine Learning: A Review' (1,200 citations)."
+Thought: Let me look for more specific applications.
+Action:
+{{
+  "name": "search_semantic_scholar",
+  "arguments": {{"query": "quantum machine learning practical applications"}}
+}}
+Observation: "Found papers on quantum support vector machines and quantum neural networks for optimization problems."
+Thought: I should check if there are any real-world implementations.
+Action:
+{{
+  "name": "search_web",
+  "arguments": {{"query": "quantum machine learning implementation IBM Google"}}
+}}
+Observation: "IBM and Google have released quantum machine learning libraries."
+Thought: I can now provide a comprehensive overview.
+Action:
+{{
+  "name": "final_answer",
+  "arguments": {{"answer": "Recent developments include: 1) Quantum neural networks for optimization (1,200 citations), 2) Quantum kernel methods for classification, 3) Practical implementations by IBM and Google. The field is moving from theoretical to practical applications."}}
 }}
 
 """) 

@@ -5,6 +5,7 @@ Includes RAG search and Bing search implementations.
 
 import deepresearch_azure.config as config
 import logging
+import requests
 from deepresearch_azure.content_utils import extract_relevant_content, format_context_for_react
 from azure.core.credentials import AzureKeyCredential
 from azure.search.documents import SearchClient
@@ -12,6 +13,7 @@ from azure.identity import DefaultAzureCredential
 from azure.ai.projects import AIProjectClient
 from azure.ai.projects.models import BingGroundingTool
 from openai import AzureOpenAI
+from deepresearch_azure.semantic_scholar_tool import get_semantic_scholar_tool
 
 # Setup logging
 logger = logging.getLogger('deepresearch.tools')
@@ -251,30 +253,28 @@ class AskUserTool(SearchTool):
             name="ask_user",
             description="Ask the user for feedback or clarification"
         )
-
+    
     def execute(self, query):
-        # Prompt the user and return their input
-        print(f"\n[ASK USER] {query}")
-        answer = input("> ")
-        return answer
-
+        """Prompt the user and return their input"""
+        print(f"\n[User Input Required] {query}")
+        return input("Your response: ").strip()
+    
     def format_result(self, query, result):
-        # Return the raw user input as the formatted observation
-        return result
+        """Return the raw user input as the formatted observation"""
+        return f"User response to '{query}': {result}"
 
-# Available tools
-RAG_TOOL = RAGSearchTool()
-BING_TOOL = BingSearchTool()
-ASK_USER_TOOL = AskUserTool()
+def get_all_tools():
+    """Get all available search tools"""
+    return [
+        RAGSearchTool(),
+        BingSearchTool(),
+        AskUserTool(),
+        get_semantic_scholar_tool()  # Use the new tool from its own module
+    ]
 
 # Import and instantiate ArxivSearchTool
 from deepresearch_azure.arxiv_tool import ArxivSearchTool
 from deepresearch_azure.paper_reader import PaperReaderTool
 
 ARXIV_TOOL = ArxivSearchTool()
-PAPER_READER_TOOL = PaperReaderTool()
-
-def get_all_tools():
-    """Return all available search tools"""
-    logger.info("Getting all search tools")
-    return [RAG_TOOL, BING_TOOL, ASK_USER_TOOL, ARXIV_TOOL, PAPER_READER_TOOL]  # Add PAPER_READER_TOOL to the list 
+PAPER_READER_TOOL = PaperReaderTool() 
