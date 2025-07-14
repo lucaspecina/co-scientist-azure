@@ -265,11 +265,15 @@ class AskUserTool(SearchTool):
 def get_all_tools():
     """Get all available search tools"""
     from deepresearch_azure.semantic_scholar_tool import get_semantic_scholar_tool
+    from deepresearch_azure.arxiv_tool import ArxivSearchTool
+    from deepresearch_azure.paper_reader import PaperReaderTool
     return [
         RAGSearchTool(),
         BingSearchTool(),
         AskUserTool(),
-        get_semantic_scholar_tool()  # Use the new tool from its own module
+        get_semantic_scholar_tool(),
+        ArxivSearchTool(),
+        PaperReaderTool()
     ]
 
 # Import and instantiate ArxivSearchTool

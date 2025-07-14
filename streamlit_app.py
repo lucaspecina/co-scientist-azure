@@ -5,6 +5,8 @@ from deepresearch_azure.session_manager import SessionManager
 import json
 import uuid
 import time
+import sys
+import re
 
 st.set_page_config(page_title="Co-Scientist Azure", layout="wide")
 
@@ -48,16 +50,31 @@ with col1:
     query = st.text_area("Enter your research query:", height=100)
     if st.button("Start Research") and query:
         st.session_state.agent.start_new_query(query)
-        st.session_state.output_log = [f"Query: {query}"]
+        st.session_state.output_log = [f"**Query:** {query}"]
         st.session_state.pending_query = None
         st.session_state.session_id = st.session_state.agent.session_manager.current_session['session_id']
-        st.session_state.auto_run = True  # Flag to trigger auto run
+        st.info("Query initialized. Use 'Step' or 'Run Until Checkpoint or Input' to advance the research process.")
+        st.rerun()
 
     # Display output log in chat-like format
     chat_container = st.container()
     with chat_container:
         for msg in st.session_state.output_log:
-            st.markdown(msg)
+            lines = msg.split('\n')
+            for line in lines:
+                if line.startswith('Assistant: Thought:'):
+                    st.markdown(f'**Thought:** {line.split("Thought:", 1)[1]}', unsafe_allow_html=True)
+                elif line.startswith('Action:'):
+                    st.markdown('**Action:**', unsafe_allow_html=True)
+                    # Extract JSON and display as code
+                    json_match = re.search(r'\{.*\}', msg, re.DOTALL)
+                    if json_match:
+                        st.code(json_match.group(0), language='json')
+                elif line.startswith('[USING') or line.startswith('Observation:'):
+                    with st.expander("Show Details"):
+                        st.markdown(f'<div style="font-size:14px; white-space: pre-wrap; background-color: #d0d0d0; color: black; padding: 10px; border-radius: 5px;">{line}</div>', unsafe_allow_html=True)
+                else:
+                    st.markdown(f'<div style="font-size:14px; white-space: pre-wrap;">{line}</div>', unsafe_allow_html=True)
 
     # Handle pending user input
     if st.session_state.pending_query:
@@ -67,68 +84,47 @@ with col1:
         if st.button("Submit Response") and user_response:
             st.session_state.agent.provide_user_response(user_response)
             st.session_state.pending_query = None
-            st.session_state.output_log.append(f"User response: {user_response}")
-            st.session_state.auto_run = True  # Resume auto-run after response
-            st.rerun()  # Immediately rerun to trigger the auto-run loop
-
-    if 'auto_run' in st.session_state and st.session_state.auto_run:
-        st.session_state.auto_run = False
-        progress_bar = st.progress(0)
-        status_text = st.empty()
-        i = 0
-        max_steps = 20  # Arbitrary max to prevent infinite loop
-        while i < max_steps:
-            if st.session_state.pending_query:
-                break
-            status_text.text(f"Processing step {i+1}...")
-            step_result = st.session_state.agent.step()
-            st.session_state.output_log.append(step_result['output'])
-            if step_result['type'] == 'ask_user':
-                st.session_state.pending_query = step_result['query']
-                break
-            elif step_result['type'] == 'checkpoint':
-                st.session_state.output_log.append(f"**Result:** {step_result['answer']}")
-                break
-            elif step_result['type'] == 'error':
-                st.error("An error occurred during processing.")
-                break
-            progress_bar.progress((i + 1) / max_steps)
-            i += 1
-            # To give a sense of progress, but Streamlit won't update until end
-        progress_bar.empty()
-        status_text.empty()
-        st.rerun()  # Rerun to update the UI
+            st.session_state.output_log.append(f"**User response:** {user_response}")
+            st.rerun()
 
 with col2:
     st.header("Controls")
     if st.button("Step"):
-        if st.session_state.agent.context:  # Check if a query has been started
-            step_result = st.session_state.agent.step()
-            st.session_state.output_log.append(step_result['output'])
-            if step_result['type'] == 'ask_user':
-                st.session_state.pending_query = step_result['query']
-            elif step_result['type'] == 'checkpoint':
-                st.session_state.output_log.append(f"**Result:** {step_result['answer']}")
-            elif step_result['type'] == 'error':
-                st.error("An error occurred during processing.")
-        else:
-            st.warning("Please start a research query first.")
+        with st.spinner("Processing single step..."):
+            if st.session_state.agent.context:  # Check if a query has been started
+                step_result = st.session_state.agent.step()
+                # Duplicate to terminal
+                print(step_result['output'])
+                st.session_state.output_log.append(step_result['output'])
+                if step_result['type'] == 'ask_user':
+                    st.session_state.pending_query = step_result['query']
+                elif step_result['type'] == 'checkpoint':
+                    st.session_state.output_log.append(f"**Result:** {step_result['answer']}")
+                elif step_result['type'] == 'error':
+                    st.error("An error occurred during processing.")
+            else:
+                st.warning("Please start a research query first.")
+        st.rerun()  # Rerun to update the UI
 
     if st.button("Run Until Checkpoint or Input"):
-        while True:
-            if st.session_state.pending_query:
-                break
-            step_result = st.session_state.agent.step()
-            st.session_state.output_log.append(step_result['output'])
-            if step_result['type'] == 'ask_user':
-                st.session_state.pending_query = step_result['query']
-                break
-            elif step_result['type'] == 'checkpoint':
-                st.session_state.output_log.append(f"**Result:** {step_result['answer']}")
-                break
-            elif step_result['type'] == 'error':
-                st.error("An error occurred during processing.")
-                break
+        with st.spinner("Running until checkpoint or user input..."):
+            while True:
+                if st.session_state.pending_query:
+                    break
+                step_result = st.session_state.agent.step()
+                # Duplicate to terminal
+                print(step_result['output'])
+                st.session_state.output_log.append(step_result['output'])
+                if step_result['type'] == 'ask_user':
+                    st.session_state.pending_query = step_result['query']
+                    break
+                elif step_result['type'] == 'checkpoint':
+                    st.session_state.output_log.append(f"**Result:** {step_result['answer']}")
+                    break
+                elif step_result['type'] == 'error':
+                    st.error("An error occurred during processing.")
+                    break
+            st.rerun()  # Rerun to update the UI
 
     # Session info
     if st.session_state.session_id:

@@ -107,11 +107,11 @@ class SemanticScholarSearchTool(SearchTool):
         for i, paper in enumerate(result, 1):
             formatted_string += f"Paper {i}:\n"
             formatted_string += f"  Title: {paper['title']}\n"
-            formatted_string += f"  Authors: {', '.join(paper['authors'])}\n"
+            formatted_string += f"  Authors: {', '.join(paper['authors']) if paper['authors'] else 'Unknown'}\n"
             formatted_string += f"  Year: {paper['year']}\n"
             formatted_string += f"  Venue: {paper['venue']}\n"
             formatted_string += f"  Citations: {paper['citations']}\n"
-            formatted_string += f"  Fields: {', '.join(paper['fields'])}\n"
+            formatted_string += f"  Fields: {', '.join(paper['fields']) if paper['fields'] else 'Unknown'}\n"
             # Limit abstract length for brevity
             abstract_snippet = paper['abstract'][:500] + "..." if len(paper['abstract']) > 500 else paper['abstract']
             formatted_string += f"  Abstract: {abstract_snippet}\n"
