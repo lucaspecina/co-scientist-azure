@@ -153,6 +153,13 @@ class ReActAgent:
         action_str = re.sub(r"'([a-zA-Z0-9_]+)':", r'"\1":', action_str)  # Keys
         action_str = re.sub(r": '([^']*?)'", r': "\1"', action_str)  # Values (simple, no inner quotes)
         
+        # Strip double outer braces and fix nested arguments
+        action_str = action_str.strip().lstrip('{').rstrip('}').strip()  # Strip outer single braces first
+        action_str = re.sub(r'^\{\{|\}\}$', '', action_str)  # Remove double outer braces
+        action_str = '{' + action_str + '}'
+        action_str = re.sub(r'"arguments": \{\{', '"arguments": {', action_str)
+        action_str = re.sub(r'\}\}', '}', action_str)
+        
         self.logger.info(f"Cleaned action string: {action_str}")
         
         action_str = self._repair_json(action_str)

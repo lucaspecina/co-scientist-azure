@@ -23,6 +23,8 @@ if 'session_id' not in st.session_state:
     st.session_state.session_id = None
 if 'sessions' not in st.session_state:
     st.session_state.sessions = st.session_state.agent.list_available_sessions()
+if 'pending_action' not in st.session_state:
+    st.session_state.pending_action = None
 
 # Sidebar for sessions
 with st.sidebar:
@@ -40,6 +42,7 @@ with st.sidebar:
         st.session_state.session_id = selected_session
         st.session_state.output_log = []
         st.session_state.pending_query = None
+        st.session_state.pending_action = None
         st.success(f"Loaded session {selected_session}")
 
 # Main area
@@ -90,41 +93,63 @@ with col1:
 with col2:
     st.header("Controls")
     if st.button("Step"):
-        with st.spinner("Processing single step..."):
-            if st.session_state.agent.context:  # Check if a query has been started
-                step_result = st.session_state.agent.step()
-                # Duplicate to terminal
-                print(step_result['output'])
-                st.session_state.output_log.append(step_result['output'])
-                if step_result['type'] == 'ask_user':
-                    st.session_state.pending_query = step_result['query']
-                elif step_result['type'] == 'checkpoint':
-                    st.session_state.output_log.append(f"**Result:** {step_result['answer']}")
-                elif step_result['type'] == 'error':
-                    st.error("An error occurred during processing.")
+        if st.session_state.pending_action:
+            with st.spinner("Executing action..."):
+                exec_result = st.session_state.agent.execute_parsed_action(st.session_state.pending_action)
+                st.session_state.output_log.append(exec_result['output'])
+                st.session_state.pending_action = None
+                if exec_result['type'] == 'ask_user':
+                    st.session_state.pending_query = exec_result['query']
+                elif exec_result['type'] == 'checkpoint':
+                    st.session_state.output_log.append(f"**Result:** {exec_result['answer']}")
+                elif exec_result['type'] == 'error':
+                    st.error("Error executing action.")
+            st.rerun()
+        elif not st.session_state.pending_query:  # Only proceed if no user input pending
+            if st.session_state.agent.context:
+                with st.spinner("Generating response..."):
+                    gen_result = st.session_state.agent.generate_response()
+                    st.session_state.output_log.append(gen_result['output'])
+                    if gen_result['type'] == 'response':
+                        st.session_state.pending_action = gen_result['action']
+                    elif gen_result['type'] == 'error':
+                        st.error("Error generating response.")
+                st.rerun()
             else:
-                st.warning("Please start a research query first.")
-        st.rerun()  # Rerun to update the UI
+                st.warning("Start a query first.")
+        else:
+            st.info("Submit user response first to continue.")
 
     if st.button("Run Until Checkpoint or Input"):
-        with st.spinner("Running until checkpoint or user input..."):
-            while True:
-                if st.session_state.pending_query:
+        while not st.session_state.pending_query and not st.session_state.pending_action:
+            # Generate phase
+            with st.spinner("Generating response..."):
+                gen_result = st.session_state.agent.generate_response()
+                print(gen_result['output'])
+                st.session_state.output_log.append(gen_result['output'])
+                if gen_result['type'] == 'error':
+                    st.error("Error generating response.")
                     break
-                step_result = st.session_state.agent.step()
-                # Duplicate to terminal
-                print(step_result['output'])
-                st.session_state.output_log.append(step_result['output'])
-                if step_result['type'] == 'ask_user':
-                    st.session_state.pending_query = step_result['query']
-                    break
-                elif step_result['type'] == 'checkpoint':
-                    st.session_state.output_log.append(f"**Result:** {step_result['answer']}")
-                    break
-                elif step_result['type'] == 'error':
-                    st.error("An error occurred during processing.")
-                    break
-            st.rerun()  # Rerun to update the UI
+                st.session_state.pending_action = gen_result['action']
+            st.rerun()
+            
+            # Execute phase (on next run, but since loop, it will continue after rerun)
+            if st.session_state.pending_action:
+                with st.spinner("Executing action..."):
+                    exec_result = st.session_state.agent.execute_parsed_action(st.session_state.pending_action)
+                    print(exec_result['output'])
+                    st.session_state.output_log.append(exec_result['output'])
+                    st.session_state.pending_action = None
+                    if exec_result['type'] == 'ask_user':
+                        st.session_state.pending_query = exec_result['query']
+                        break
+                    elif exec_result['type'] == 'checkpoint':
+                        st.session_state.output_log.append(f"**Result:** {exec_result['answer']}")
+                        break
+                    elif exec_result['type'] == 'error':
+                        st.error("Error executing action.")
+                        break
+                st.rerun()
 
     # Session info
     if st.session_state.session_id:
