@@ -1,0 +1,20 @@
+{
+  "session_id": "69739914-76f4-45df-b36a-b985ece0a843",
+  "created_at": "2025-07-14T13:05:28.961583",
+  "last_updated": "2025-07-14T13:05:28.961583",
+  "initial_query": "I want to understand from what carbon chain length a compound is considered paraffin in a given crude oil. \nI'm not so interested in general information; rather, I want to know how to calculate from which carbon chain length, \nin a particular crude oil, the first paraffin crystal (wax oil) precipitates.\nUse semantich scholar to search the most relevant papers. After it, use arxiv.",
+  "queries": [
+    {
+      "query_id": "982bb154-d927-46a4-a45b-903aae5b3092",
+      "timestamp": "2025-07-14T13:05:28.961583",
+      "query": "I want to understand from what carbon chain length a compound is considered paraffin in a given crude oil. \nI'm not so interested in general information; rather, I want to know how to calculate from which carbon chain length, \nin a particular crude oil, the first paraffin crystal (wax oil) precipitates.\nUse semantich scholar to search the most relevant papers. After it, use arxiv.",
+      "context": [],
+      "used_tools": [],
+      "final_answer": null
+    }
+  ],
+  "metadata": {
+    "total_queries": 1,
+    "status": "active"
+  }
+}
