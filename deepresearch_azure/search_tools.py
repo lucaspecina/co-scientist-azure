@@ -13,7 +13,6 @@ from azure.identity import DefaultAzureCredential
 from azure.ai.projects import AIProjectClient
 from azure.ai.projects.models import BingGroundingTool
 from openai import AzureOpenAI
-from deepresearch_azure.semantic_scholar_tool import get_semantic_scholar_tool
 
 # Setup logging
 logger = logging.getLogger('deepresearch.tools')
@@ -265,6 +264,7 @@ class AskUserTool(SearchTool):
 
 def get_all_tools():
     """Get all available search tools"""
+    from deepresearch_azure.semantic_scholar_tool import get_semantic_scholar_tool
     return [
         RAGSearchTool(),
         BingSearchTool(),
