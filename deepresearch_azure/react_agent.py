@@ -484,8 +484,8 @@ Remember: Your answers are checkpoints in an ongoing conversation. The user may 
         self.context.append({"role": "user", "content": formatted})
         self.pending_user_query = None
 
-    def step(self):
-        """Perform one iteration of the ReAct loop, capturing output for GUI"""
+    def generate_response(self):
+        """Generate and parse the model's response"""
         import sys
         from io import StringIO
         
@@ -494,25 +494,17 @@ Remember: Your answers are checkpoints in an ongoing conversation. The user may 
         sys.stdout = output_capture
         
         try:
-            if self.pending_user_query:
-                sys.stdout = original_stdout
-                return {"type": "waiting_user", "output": ""}
-            
             self.current_iteration += 1
             print(f"\nIteration {self.current_iteration}----------------------------------")
             
-            # Compute token count
             messages = [{"role": "system", "content": REACT_PROMPT.system_prompt.replace("{tools}", self.tools_description)}] + self.context
             try:
                 import tiktoken
-                try:
-                    encoding = tiktoken.encoding_for_model(self.model)
-                except Exception:
-                    encoding = tiktoken.get_encoding("cl100k_base")
+                encoding = tiktoken.encoding_for_model(self.model) if self.model in tiktoken.model.MODEL_TO_ENCODING else tiktoken.get_encoding("cl100k_base")
                 token_count = sum(len(encoding.encode(m["content"])) for m in messages if m["content"] is not None)
                 print(f"[CONTEXT TOKENS]: {token_count}")
             except ImportError:
-                print("[CONTEXT TOKENS]: tiktoken library not installed, token count unavailable")
+                print("[CONTEXT TOKENS]: tiktoken not installed")
             
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -529,8 +521,28 @@ Remember: Your answers are checkpoints in an ongoing conversation. The user may 
             if not action:
                 print("Failed to parse action from response.")
                 sys.stdout = original_stdout
-                return {"type": "error", "output": output_capture.getvalue()}
+                return {"type": "error", "output": output_capture.getvalue(), "action": None}
             
+            sys.stdout = original_stdout
+            return {"type": "response", "output": output_capture.getvalue(), "action": action}
+        except Exception as e:
+            print(f"Error generating response: {str(e)}")
+            sys.stdout = original_stdout
+            return {"type": "error", "output": output_capture.getvalue(), "action": None}
+        finally:
+            sys.stdout = original_stdout
+
+    def execute_parsed_action(self, action):
+        """Execute a pre-parsed action"""
+        import sys
+        from io import StringIO
+        
+        output_capture = StringIO()
+        original_stdout = sys.stdout
+        sys.stdout = output_capture
+        
+        try:
+            print(f"Executing action: {action['name']}")
             result = self._execute_action(action)
             
             if result.get("is_ask_user"):
@@ -565,11 +577,19 @@ Remember: Your answers are checkpoints in an ongoing conversation. The user may 
             
             sys.stdout = original_stdout
             return {"type": "observation", "output": output_capture.getvalue()}
-        
         except Exception as e:
-            print(f"Error in step: {str(e)}")
+            print(f"Error executing action: {str(e)}")
             sys.stdout = original_stdout
             return {"type": "error", "output": output_capture.getvalue()}
-        
         finally:
-            sys.stdout = original_stdout 
+            sys.stdout = original_stdout
+
+    def step(self):
+        """Perform one iteration of the ReAct loop, capturing output for GUI"""
+        gen_result = self.generate_response()
+        if gen_result['type'] != 'response':
+            return gen_result
+        action = gen_result['action']
+        exec_result = self.execute_parsed_action(action)
+        exec_result['output'] = gen_result['output'] + exec_result['output']
+        return exec_result 
