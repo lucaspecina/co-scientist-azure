@@ -1,3 +1,6 @@
-I want to understand from what carbon chain length a compound is considered paraffin in a given crude oil. I'm not so interested in general information; rather, I want to know how to calculate from which carbon chain length, in a particular crude oil, the first paraffin crystal (wax oil) precipitates.
+I want to understand from what carbon chain length a compound is considered paraffin in a given crude oil. 
+I'm not so interested in general information; rather, I want to know how to calculate from which carbon chain length, 
+in a particular crude oil, the first paraffin crystal (wax oil) precipitates.
+Use semantich scholar to search the most relevant papers. After it, use arxiv.
 
 Quiero encontrar la mejor manera de extender el context de un LLM para mejorar la memoria. Preguntame para aclarar dudas.

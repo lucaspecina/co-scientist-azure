@@ -17,7 +17,7 @@ class ReActAgent:
     ReAct agent that uses a reasoning-action-observation cycle.
     """
     
-    def __init__(self, verbose=False, session_id=None, skip_session_creation=False):
+    def __init__(self, verbose=False, session_id=None, skip_session_creation=False, gui_mode=False):
         """Initialize the ReAct agent
         
         Args:
@@ -67,6 +67,10 @@ class ReActAgent:
             self.logger.info(f"Available tools: {', '.join(self.tools.keys())}")
             print(f"Available tools: {', '.join(self.tools.keys())}")
 
+        self.gui_mode = gui_mode
+        self.pending_user_query = None
+        self.current_iteration = 0
+
     def _load_session(self, session_id: str):
         """Load an existing session"""
         session = self.session_manager.load_session(session_id)
@@ -95,76 +99,72 @@ class ReActAgent:
         
         return "\n".join(tools_list)
     
+    def _repair_json(self, json_str):
+        """Simple JSON repair to balance braces and brackets"""
+        open_braces = 0
+        open_brackets = 0
+        in_string = False
+        repaired = ''
+        for char in json_str:
+            repaired += char
+            if char == '"' and (len(repaired) == 1 or repaired[-2] != '\\'):
+                in_string = not in_string
+            if not in_string:
+                if char == '{':
+                    open_braces += 1
+                elif char == '}':
+                    open_braces -= 1
+                elif char == '[':
+                    open_brackets += 1
+                elif char == ']':
+                    open_brackets -= 1
+        # Add closing braces/brackets if needed
+        repaired += ']' * open_brackets
+        repaired += '}' * open_braces
+        return repaired
+
     def _parse_action(self, response):
         """Parse the action from the model response"""
-        # Extract the action block using regular expressions
-        action_match = re.search(r'Action:\s*\{(.*?)\}', response, re.DOTALL)
+        import re
+        import json
+        
+        # Find the Action block, allowing for optional code fences and whitespace
+        action_match = re.search(r'Action:\s*(?:```(?:json)?\s*)?\{([\s\S]*?)\}(?:\s*```)?', response, re.DOTALL | re.IGNORECASE)
         if not action_match:
             self.logger.warning("No action found in response")
             return None
         
-        # Try to extract the action details
+        # Extract the content inside the braces
+        action_str = '{' + action_match.group(1) + '}'
+        
+        self.logger.info(f"Raw action string: {action_str}")
+        
+        # Clean up whitespace
+        action_str = re.sub(r'\s+', ' ', action_str).strip()
+        
+        # Remove trailing comma
+        action_str = re.sub(r',\s*(?=}|])', '', action_str)
+        
+        # Escape any unescaped double quotes inside values (assume values are between ": and ")
+        action_str = re.sub(r'(?<=:")([^"]*?)(?=")', lambda m: m.group(1).replace('"', '\\"'), action_str)
+        
+        # Now safely replace structural single quotes with double quotes (keys and simple values)
+        # This regex targets 'key': 'value' patterns, replacing the quotes
+        action_str = re.sub(r"'([a-zA-Z0-9_]+)':", r'"\1":', action_str)  # Keys
+        action_str = re.sub(r": '([^']*?)'", r': "\1"', action_str)  # Values (simple, no inner quotes)
+        
+        self.logger.info(f"Cleaned action string: {action_str}")
+        
+        action_str = self._repair_json(action_str)
+        self.logger.info(f"Repaired action string: {action_str}")
+        
         try:
-            # Extract action name
-            name_match = re.search(r'"name":\s*"([^"]+)"', action_match.group(0))
-            if not name_match:
-                self.logger.warning("No action name found in response")
-                return None
-            name = name_match.group(1)
-            
-            # Extract arguments
-            args_match = re.search(r'"arguments":\s*\{(.*?)\}', action_match.group(0), re.DOTALL)
-            arguments = {}
-            
-            if args_match:
-                args_text = args_match.group(1).strip()
-                # Parse individual arguments
-                arg_matches = re.finditer(r'"([^"]+)":\s*"([^"]+)"', args_text)
-                for match in arg_matches:
-                    key, value = match.groups()
-                    arguments[key] = value
-            
-            self.logger.info(f"Parsed action: {name} with arguments: {arguments}")
-            return {"name": name, "arguments": arguments}
-        except Exception as e:
-            self.logger.error(f"Error parsing action details: {e}")
-            
-            # Fallback to a more basic parsing attempt for tools we know
-            if "search_rag" in action_match.group(0):
-                query_match = re.search(r'"query":\s*"([^"]+)"', action_match.group(0))
-                if query_match:
-                    self.logger.info(f"Fallback parsing: Using search_rag with query: {query_match.group(1)}")
-                    return {
-                        "name": "search_rag",
-                        "arguments": {"query": query_match.group(1)}
-                    }
-            elif "search_web" in action_match.group(0):
-                query_match = re.search(r'"query":\s*"([^"]+)"', action_match.group(0))
-                if query_match:
-                    self.logger.info(f"Fallback parsing: Using search_web with query: {query_match.group(1)}")
-                    return {
-                        "name": "search_web",
-                        "arguments": {"query": query_match.group(1)}
-                    }
-            elif "read_paper" in action_match.group(0):
-                url_match = re.search(r'"url":\s*"([^"]+)"', action_match.group(0))
-                if url_match:
-                    self.logger.info(f"Fallback parsing: Using read_paper with URL: {url_match.group(1)}")
-                    return {
-                        "name": "read_paper",
-                        "arguments": {"url": url_match.group(1)}
-                    }
-            elif "final_answer" in action_match.group(0):
-                answer_match = re.search(r'"answer":\s*"([^"]+)"', action_match.group(0))
-                if answer_match:
-                    self.logger.info("Fallback parsing: Using final_answer")
-                    return {
-                        "name": "final_answer",
-                        "arguments": {"answer": answer_match.group(1)}
-                    }
-            
-            # If all parsing attempts fail
-            self.logger.warning("All parsing attempts failed")
+            action = json.loads(action_str)
+            self.logger.info(f"Parsed action: {action}")
+            return action
+        except json.JSONDecodeError as e:
+            self.logger.error(f"Error parsing action JSON: {e}")
+            print(f"Failed to parse action: {action_str} - Error: {e}")  # Print to stdout for terminal visibility
             return None
     
     def _execute_action(self, action):
@@ -212,6 +212,9 @@ class ReActAgent:
         self.used_tools.add(name)
         
         tool = self.tools[name]
+        
+        if self.gui_mode and name == "ask_user":
+            return {"result": None, "is_ask_user": True, "query": arguments.get("query", ""), "is_final": False, "is_checkpoint": False}
         
         # Handle different argument types for different tools
         if name == "read_paper":
@@ -425,3 +428,148 @@ Remember: Your answers are checkpoints in an ongoing conversation. The user may 
     def list_available_sessions(self):
         """List all available research sessions"""
         return self.session_manager.list_sessions() 
+
+    def start_new_query(self, query):
+        """Initialize a new query for the agent"""
+        system_prompt = REACT_PROMPT.system_prompt.replace("{tools}", self.tools_description)
+        
+        if not self.session_manager.current_session:
+            self.session_manager.create_session(query)
+        self.used_tools = set()
+        
+        initial_message = f"""{query}
+
+IMPORTANT INSTRUCTIONS:
+You have to approach research like a human researcher collaborating with you:
+
+1. You have to first reflect on your question to understand what you're asking and plan your approach.
+2. You have main research tools:
+   - search_rag: For searching internal documents and research papers
+   - search_web: For searching public information on the internet
+   - search_arxiv: For searching academic papers on Arxiv.org
+   - search_semantic_scholar: For searching papers on Semantic Scholar
+   - read_paper: For downloading and reading academic papers
+   - ask_user: Ask the user (supervisor) for feedback, clarification, or scope (don't use it unless you really need to)
+
+3. For technical questions like "How can I quantify paraffin content in crude oil?", you have to check both internal resources and public information, asking clarifying questions when needed.
+
+4. For factual questions like sports results, you have to primarily use web search and provide direct answers when available.
+
+5. For company-specific questions like financial results, you have to prioritize internal documents while confirming with me if you need more context.
+
+6. You have to think critically throughout the process - planning, analyzing, reconsidering approaches and ensuring you're addressing the needs effectively.
+
+**ALWAYS CALL AN ACTION, don't forget about it.**
+
+Remember: Your answers are checkpoints in an ongoing conversation. The user may provide feedback or ask follow-up questions.
+"""
+        
+        if self.context:
+            self.context.append({
+                "role": "system",
+                "content": "\n=== New Research Question ===\n"
+            })
+            self.used_tools = set()
+        
+        self.context.append({"role": "user", "content": initial_message})
+        self.original_query = query
+        self.current_iteration = 0
+        self.pending_user_query = None
+
+    def provide_user_response(self, response):
+        """Provide user response to a pending ask_user query"""
+        if not self.pending_user_query:
+            return
+        formatted = f"Observation: User response to '{self.pending_user_query}': {response}"
+        self.context.append({"role": "user", "content": formatted})
+        self.pending_user_query = None
+
+    def step(self):
+        """Perform one iteration of the ReAct loop, capturing output for GUI"""
+        import sys
+        from io import StringIO
+        
+        output_capture = StringIO()
+        original_stdout = sys.stdout
+        sys.stdout = output_capture
+        
+        try:
+            if self.pending_user_query:
+                sys.stdout = original_stdout
+                return {"type": "waiting_user", "output": ""}
+            
+            self.current_iteration += 1
+            print(f"\nIteration {self.current_iteration}----------------------------------")
+            
+            # Compute token count
+            messages = [{"role": "system", "content": REACT_PROMPT.system_prompt.replace("{tools}", self.tools_description)}] + self.context
+            try:
+                import tiktoken
+                try:
+                    encoding = tiktoken.encoding_for_model(self.model)
+                except Exception:
+                    encoding = tiktoken.get_encoding("cl100k_base")
+                token_count = sum(len(encoding.encode(m["content"])) for m in messages if m["content"] is not None)
+                print(f"[CONTEXT TOKENS]: {token_count}")
+            except ImportError:
+                print("[CONTEXT TOKENS]: tiktoken library not installed, token count unavailable")
+            
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=config.TEMPERATURE,
+                max_tokens=config.MAX_TOKENS
+            )
+            
+            assistant_message = response.choices[0].message.content
+            print(f"\nAssistant: {assistant_message}")
+            self.context.append({"role": "assistant", "content": assistant_message})
+            
+            action = self._parse_action(assistant_message)
+            if not action:
+                print("Failed to parse action from response.")
+                sys.stdout = original_stdout
+                return {"type": "error", "output": output_capture.getvalue()}
+            
+            result = self._execute_action(action)
+            
+            if result.get("is_ask_user"):
+                self.pending_user_query = result["query"]
+                print(f"\n[User Input Required] {self.pending_user_query}")
+                sys.stdout = original_stdout
+                return {"type": "ask_user", "query": result["query"], "output": output_capture.getvalue()}
+            
+            if result.get("is_checkpoint"):
+                final_answer = result["result"]
+                self.session_manager.add_query_to_session(
+                    query=self.original_query,
+                    context=self.context,
+                    used_tools=list(self.used_tools),
+                    final_answer=final_answer
+                )
+                self.context.append({
+                    "role": "assistant",
+                    "content": f"Here's what I've found so far:\n\n{final_answer}\n\nWould you like me to explore any specific aspect further or do you have any questions about this?"
+                })
+                print("\n" + "="*80)
+                print("RESULT".center(80))
+                print("="*80)
+                print(final_answer)
+                print("="*80)
+                sys.stdout = original_stdout
+                return {"type": "checkpoint", "answer": final_answer, "output": output_capture.getvalue()}
+            
+            observation = f"Observation: {result['result']}"
+            print(f"\n{observation}")
+            self.context.append({"role": "user", "content": observation})
+            
+            sys.stdout = original_stdout
+            return {"type": "observation", "output": output_capture.getvalue()}
+        
+        except Exception as e:
+            print(f"Error in step: {str(e)}")
+            sys.stdout = original_stdout
+            return {"type": "error", "output": output_capture.getvalue()}
+        
+        finally:
+            sys.stdout = original_stdout 
