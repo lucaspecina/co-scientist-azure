@@ -90,8 +90,7 @@ with col1:
             st.session_state.output_log.append(f"**User response:** {user_response}")
             st.rerun()
 
-with col2:
-    st.header("Controls")
+    # Step button - always at the bottom
     if st.button("Step"):
         if st.session_state.pending_action:
             with st.spinner("Executing action..."):
@@ -105,7 +104,7 @@ with col2:
                 elif exec_result['type'] == 'error':
                     st.error("Error executing action.")
             st.rerun()
-        elif not st.session_state.pending_query:  # Only proceed if no user input pending
+        elif not st.session_state.pending_query:
             if st.session_state.agent.context:
                 with st.spinner("Generating response..."):
                     gen_result = st.session_state.agent.generate_response()
@@ -120,6 +119,9 @@ with col2:
         else:
             st.info("Submit user response first to continue.")
 
+with col2:
+    st.header("Controls")
+    
     if st.button("Run Until Checkpoint or Input"):
         while not st.session_state.pending_query and not st.session_state.pending_action:
             # Generate phase
