@@ -8,6 +8,22 @@ import time
 import sys
 import re
 
+PASSWORD = "ytec"  # Change this to your desired password
+
+# Password check
+if 'authenticated' not in st.session_state:
+    st.session_state.authenticated = False
+
+if not st.session_state.authenticated:
+    password = st.text_input("Enter password", type="password")
+    if st.button("Login"):
+        if password == PASSWORD:
+            st.session_state.authenticated = True
+            st.rerun()
+        else:
+            st.error("Incorrect password")
+    st.stop()
+
 st.set_page_config(page_title="Co-Scientist Azure", layout="wide")
 
 st.title("Co-Scientist Azure - Research Agent GUI")
