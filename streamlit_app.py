@@ -7,8 +7,14 @@ import uuid
 import time
 import sys
 import re
+from dotenv import load_dotenv
 
-PASSWORD = "ytec"  # Change this to your desired password
+load_dotenv()
+PASSWORD = os.getenv("APP_PASSWORD")
+
+if not PASSWORD:
+    st.error("Password not configured in .env")
+    st.stop()
 
 # Password check
 if 'authenticated' not in st.session_state:
